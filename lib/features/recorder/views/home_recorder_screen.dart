@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/screen_recorder_service.dart';
 import '../../recordings_list/providers/recordings_provider.dart';
 import '../../recordings_list/views/recordings_list_screen.dart';
 import '../models/recording_state.dart';
@@ -180,6 +181,7 @@ class _HomeRecorderScreenState extends State<HomeRecorderScreen> {
                 onPause: _handlePauseRecording,
                 onResume: _handleResumeRecording,
                 onStop: _handleStopRecording,
+                onMinimize: () => ScreenRecorderService().minimizeApp(),
               ),
 
               const Spacer(),

@@ -37,9 +37,9 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Foreground Service declaration for MediaProjection (Android 10+ / Android 14+) -->
+        <!-- Native Foreground Service declaration for MediaProjection (Android 10+ / Android 14+) -->
         <service
-            android:name="com.eddystudio.ed_screen_recorder.service.ForegroundService"
+            android:name=".ScreenCaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
 

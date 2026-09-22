@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../recorder/models/recording_model.dart';
 import '../providers/recordings_provider.dart';
+import 'video_edit_screen.dart';
 import 'video_player_screen.dart';
 import 'widgets/recording_item_tile.dart';
 
@@ -174,6 +175,14 @@ class _RecordingsListScreenState extends State<RecordingsListScreen> {
               context,
               MaterialPageRoute(
                 builder: (_) => VideoPlayerScreen(recording: item),
+              ),
+            );
+          },
+          onEdit: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VideoEditScreen(recording: item),
               ),
             );
           },

@@ -32,17 +32,13 @@ Sebelum implementasi, dilakukan debat arsitektur antara dua agen spesialis:
 └──────────────────────────────┴──────────────────────────────┘
 ```
 
-### Opsi A: Kustom Native Platform Channel (Kotlin `MediaProjection` + `MediaRecorder`)
-- **Kelebihan:** Kendali penuh pada level bytecode native Android, kustomisasi codec secara granular.
-- **Kekurangan:** Memerlukan ratusan baris kode *boilerplate* Android di Kotlin/Java (`VirtualDisplay`, `MediaRecorder`, `NotificationManager`, lifecycle handling). Sangat rentan terhadap regresi saat Google merilis perubahan permission di Android 14 (API 34).
-
-### Opsi B: Modular Production-Grade Screen Recorder (`ed_screen_recorder` + Core Service Abstraction) — *(TERPILIH)*
+### Opsi A: Kustom Native Platform Channel (Kotlin `MediaProjection` + `MediaRecorder`) — *(TERPILIH & DIIMPLEMENTASIKAN)*
 - **Kelebihan:** 
-  1. Sudah mengkapsulasi MediaProjection API dan Foreground Service Android secara stabil.
-  2. Mendukung jeda (*pause*) dan lanjutkan (*resume*) secara langsung pada stream hardware.
-  3. Memisahkan layer native dari logic aplikasi melalui abstraksi `ScreenRecorderService`.
-  4. Minim celah *memory leak* karena lifecycle hardware display di-manage secara terisolasi.
-- **Keputusan:** **Opsi B terpilih** dengan membungkus library di dalam layer `ScreenRecorderService` dan `RecorderProvider` sehingga jika suatu saat ingin beralih ke native channel kustom, layer UI sama sekali tidak terpengaruh.
+  1. **100% Modern Flutter Embedding (v2):** Kebal terhadap pemutusan dukungan engine Flutter 3.44+ yang telah menghapus legacy `PluginRegistry.Registrar`.
+  2. **Android 14 (API 34) Ready:** Kontrol penuh terhadap inisialisasi `ForegroundService` bertipe `mediaProjection` dengan `ServiceCompat.startForeground`.
+  3. **Zero Deprecated Dependencies:** Bebas dari dependensi usang yang tidak terawat di pub.dev.
+  4. **Performansi Maksimal:** Encoding langsung pada hardware Android via `VirtualDisplay` & `MediaRecorder`.
+- **Keputusan:** **Opsi A terpilih dan diimplementasikan penuh** dengan menghubungkan Kotlin Native (`ScreenCaptureService` & `MainActivity`) ke `ScreenRecorderService` Dart melalui `MethodChannel('com.screenrecording.app/recorder')`. Arsitektur UI tetap bersih dan decoupled.
 
 ---
 

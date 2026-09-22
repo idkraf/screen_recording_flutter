@@ -7,6 +7,7 @@ class RecordingItemTile extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback onShare;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
 
   const RecordingItemTile({
     super.key,
@@ -14,6 +15,7 @@ class RecordingItemTile extends StatelessWidget {
     required this.onPlay,
     required this.onShare,
     required this.onDelete,
+    this.onEdit,
   });
 
   @override
@@ -153,7 +155,17 @@ class RecordingItemTile extends StatelessWidget {
                   ),
                 ),
 
-                // Action Buttons (Share & Delete)
+                // Action Buttons (Edit, Share, & Delete)
+                if (onEdit != null)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.content_cut_rounded,
+                      color: AppColors.resume,
+                      size: 20,
+                    ),
+                    tooltip: 'Potong Frame / Edit Video',
+                    onPressed: onEdit,
+                  ),
                 IconButton(
                   icon: const Icon(
                     Icons.share_rounded,

@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../recorder/models/recording_model.dart';
+import 'video_edit_screen.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final RecordingModel recording;
@@ -69,6 +70,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
   }
 
+  void _openEditScreen() {
+    if (_isInitialized && _controller.value.isPlaying) {
+      _controller.pause();
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoEditScreen(recording: widget.recording),
+      ),
+    );
+  }
+
   void _shareVideo() {
     final params = ShareParams(
       files: [XFile(widget.recording.filePath)],
@@ -98,6 +111,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.content_cut_rounded),
+            tooltip: 'Potong Frame / Edit Video',
+            onPressed: _openEditScreen,
+          ),
           IconButton(
             icon: const Icon(Icons.share_rounded),
             tooltip: 'Bagikan Video',

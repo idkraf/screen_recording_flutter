@@ -9,6 +9,7 @@ class RecordingControlButton extends StatefulWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onStop;
+  final VoidCallback? onMinimize;
 
   const RecordingControlButton({
     super.key,
@@ -18,6 +19,7 @@ class RecordingControlButton extends StatefulWidget {
     required this.onPause,
     required this.onResume,
     required this.onStop,
+    this.onMinimize,
   });
 
   @override
@@ -249,6 +251,21 @@ class _RecordingControlButtonState extends State<RecordingControlButton>
               elevation: 4,
             ),
           ),
+          const SizedBox(height: 10),
+          // Tombol Kembali ke Layar Utama HP
+          if (widget.onMinimize != null)
+            TextButton.icon(
+              onPressed: widget.onMinimize,
+              icon: const Icon(Icons.home_rounded, size: 20, color: AppColors.accent),
+              label: const Text(
+                'Ke Layar Utama HP (Minimize)',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       );
     }
