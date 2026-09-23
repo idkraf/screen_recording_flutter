@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/drive_sync_provider.dart';
 import '../../recorder/models/recording_model.dart';
+import '../models/drive_upload_task.dart';
 import '../providers/recordings_provider.dart';
 import 'video_edit_screen.dart';
 import 'video_player_screen.dart';
@@ -70,6 +71,503 @@ class _RecordingsListScreenState extends State<RecordingsListScreen> {
             child: const Text('Hapus'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showRecordingActionsSheet(BuildContext context, RecordingModel recording) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return Consumer2<DriveSyncProvider, RecordingsProvider>(
+          builder: (context, driveSync, recordingsProvider, _) {
+            final driveTask = driveSync.getTaskForRecording(recording.id);
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle Bar
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.textMuted.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Header Info Video
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF3B82F6), Color(0xFF1E1B4B)],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.movie_creation_rounded,
+                              color: Colors.white70,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  recording.fileName,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${recording.formattedDate} • ${recording.formattedSize}${recording.duration > Duration.zero ? " • ${recording.formattedDuration}" : ""}',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+                    const Divider(color: AppColors.border, height: 1),
+                    const SizedBox(height: 6),
+
+                    // 1. Putar Video
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                      ),
+                      title: const Text(
+                        'Putar Video',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Putar video dengan fitur AI Smart Chapters',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => VideoPlayerScreen(recording: recording),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // 2. Edit & Pangkas Video
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.resume.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.content_cut_rounded,
+                          color: AppColors.resume,
+                          size: 20,
+                        ),
+                      ),
+                      title: const Text(
+                        'Edit & Pangkas Video',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Trim presisi, buang frame & opsi audio mute',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => VideoEditScreen(recording: recording),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // 3. Cadangkan ke Google Drive
+                    _buildDriveSyncActionTile(
+                      sheetContext,
+                      context,
+                      recording,
+                      driveSync,
+                      driveTask,
+                    ),
+
+                    // 4. Bagikan Video
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.share_rounded,
+                          color: AppColors.accent,
+                          size: 20,
+                        ),
+                      ),
+                      title: const Text(
+                        'Bagikan Video',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Kirim video ke WhatsApp, Telegram, email, dll.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        recordingsProvider.shareRecording(recording);
+                      },
+                    ),
+
+                    // 5. Hapus Video
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.stop.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.stop,
+                          size: 22,
+                        ),
+                      ),
+                      title: const Text(
+                        'Hapus Rekaman',
+                        style: TextStyle(
+                          color: AppColors.stop,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Hapus permanen dari penyimpanan perangkat',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _confirmDelete(recording);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDriveSyncActionTile(
+    BuildContext sheetContext,
+    BuildContext screenContext,
+    RecordingModel recording,
+    DriveSyncProvider driveSync,
+    DriveUploadTask? driveTask,
+  ) {
+    if (driveTask == null) {
+      return ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.cloud_upload_outlined,
+            color: AppColors.accent,
+            size: 22,
+          ),
+        ),
+        title: const Text(
+          'Cadangkan ke Google Drive',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: const Text(
+          'Simpan salinan ke folder Drive pribadi Anda',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          final auth = screenContext.read<AuthProvider>();
+          if (!auth.isLoggedIn) {
+            ScaffoldMessenger.of(screenContext).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Silakan login dengan Google untuk mencadangkan rekaman ke Drive.',
+                ),
+                backgroundColor: AppColors.stop,
+                behavior: SnackBarBehavior.floating,
+                action: SnackBarAction(
+                  label: 'Login',
+                  textColor: Colors.white,
+                  onPressed: () => auth.signInWithGoogle(),
+                ),
+              ),
+            );
+            return;
+          }
+          driveSync.enqueueUpload(recording);
+          ScaffoldMessenger.of(screenContext).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Rekaman "${recording.fileName}" masuk ke antrean pencadangan Drive.',
+              ),
+              backgroundColor: AppColors.resume,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      );
+    }
+
+    if (driveTask.isUploading) {
+      return ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              value: driveTask.progress > 0 ? driveTask.progress : null,
+              strokeWidth: 2.2,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+        ),
+        title: Text(
+          'Sedang Mengunggah (${(driveTask.progress * 100).toInt()}%)',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          '${(driveTask.uploadedBytes / (1024 * 1024)).toStringAsFixed(1)} MB / ${(driveTask.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        trailing: TextButton(
+          onPressed: () {
+            driveSync.cancelUpload(driveTask.id);
+            Navigator.pop(sheetContext);
+          },
+          child: const Text('Batal', style: TextStyle(color: AppColors.stop)),
+        ),
+      );
+    }
+
+    if (driveTask.isPending) {
+      return ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.hourglass_top_rounded,
+            color: Colors.amber,
+            size: 22,
+          ),
+        ),
+        title: const Text(
+          'Menunggu Antrean Drive',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: const Text(
+          'Akan otomatis diunggah segera...',
+          style: TextStyle(color: Colors.amber, fontSize: 12),
+        ),
+      );
+    }
+
+    if (driveTask.isCompleted) {
+      return ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.resume.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.cloud_done_rounded,
+            color: AppColors.resume,
+            size: 22,
+          ),
+        ),
+        title: const Text(
+          'Tersimpan di Google Drive',
+          style: TextStyle(
+            color: AppColors.resume,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: const Text(
+          'Ketuk untuk melihat detail pencadangan cloud',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        onTap: () {
+          Navigator.pop(sheetContext);
+          _showDriveFileInfo(screenContext, driveTask);
+        },
+      );
+    }
+
+    // driveTask.isFailed
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.stop.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.refresh_rounded,
+          color: AppColors.stop,
+          size: 22,
+        ),
+      ),
+      title: const Text(
+        'Coba Lagi Unggah ke Drive',
+        style: TextStyle(
+          color: AppColors.stop,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        driveTask.errorMessage ?? 'Gagal mengunggah. Ketuk untuk mengulang.',
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: () {
+        Navigator.pop(sheetContext);
+        driveSync.retryUpload(recording.id);
+      },
+    );
+  }
+
+  void _showDriveFileInfo(BuildContext context, DriveUploadTask task) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.cloud_done_rounded, color: AppColors.resume, size: 26),
+                SizedBox(width: 10),
+                Text(
+                  'Tersimpan di Google Drive',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'File "${task.fileName}" berhasil disinkronkan ke Google Drive di folder khusus aplikasi "REKAM Screen Recordings".',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Tutup'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -194,6 +692,8 @@ class _RecordingsListScreenState extends State<RecordingsListScreen> {
               ),
             );
           },
+          onTap: () => _showRecordingActionsSheet(context, item),
+          onOptions: () => _showRecordingActionsSheet(context, item),
           onEdit: () {
             Navigator.push(
               context,
