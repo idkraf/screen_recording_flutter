@@ -28,10 +28,17 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter-plugins
 .pub-cache/
 .pub/
-/build/
+build/
+**/build/
 /coverage/
+
+# Local Environment & Secrets
+.env
+*.env
+**/*.env
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +50,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Keystore & Android Release Signing Credentials
+*.keystore
+*.jks
+**/*.keystore
+**/*.jks
+rekam.jks
+**/rekam.jks
+key.properties
+**/key.properties
+local.properties
+**/local.properties
+
+# Firebase configurations & Sensitive FlutterFire Options
+firebase.json
+.firebaserc
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+lib/firebase_options.dart
+**/firebase_options.dart
+
+

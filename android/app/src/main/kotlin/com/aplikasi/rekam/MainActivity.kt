@@ -1,4 +1,4 @@
-package com.screenrecording.app.screen_recorder_app
+package com.aplikasi.rekam
 
 import android.app.Activity
 import android.content.ComponentName
@@ -183,9 +183,7 @@ class MainActivity : FlutterActivity() {
                 })
                 .build()
 
-            val sequenceBuilder = EditedMediaItemSequence.Builder()
-            editedItems.forEach { sequenceBuilder.addItem(it) }
-            val sequence = sequenceBuilder.build()
+            val sequence = EditedMediaItemSequence(editedItems)
             val composition = Composition.Builder(sequence).build()
 
             transformer.start(composition, outputPath)

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/screen_recorder_service.dart';
 import '../../../core/services/storage_service.dart';
@@ -78,6 +79,10 @@ class RecorderProvider extends ChangeNotifier {
       _elapsedDuration = Duration.zero;
       _startTimer();
       notifyListeners();
+      AnalyticsService.instance.logRecordingStarted(
+        withAudio: _isAudioEnabled,
+        resolution: '${width}x$height',
+      );
       return true;
     } else {
       _state = RecordingState.idle;
@@ -129,6 +134,11 @@ class RecorderProvider extends ChangeNotifier {
     if (recordedFile != null && await recordedFile.exists()) {
       final stat = await recordedFile.stat();
       final fileName = recordedFile.path.split(Platform.pathSeparator).last;
+
+      AnalyticsService.instance.logRecordingSaved(
+        durationSeconds: totalDuration.inSeconds,
+        fileSizeBytes: stat.size,
+      );
 
       return RecordingModel(
         id: recordedFile.path,

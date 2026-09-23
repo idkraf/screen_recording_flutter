@@ -1,0 +1,7 @@
+# Template file for release signing configuration
+# Duplicate this file as 'key.properties' in the same folder (android/)
+# and fill in your actual keystore credentials.
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=rekam_release_key
+storeFile=rekam.jks

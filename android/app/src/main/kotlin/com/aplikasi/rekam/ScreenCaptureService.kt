@@ -1,4 +1,4 @@
-package com.screenrecording.app.screen_recorder_app
+package com.aplikasi.rekam
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -73,7 +73,7 @@ class ScreenCaptureService : Service() {
         } else null
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Screen Recorder Pro")
+            .setContentTitle("REKAM")
             .setContentText("Sedang merekam layar. Ketuk untuk membuka kontrol.")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)

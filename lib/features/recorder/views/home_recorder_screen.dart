@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/ai_guard_service.dart';
 import '../../../core/services/screen_recorder_service.dart';
+import '../../profile/views/profile_screen.dart';
 import '../../recordings_list/providers/recordings_provider.dart';
 import '../../recordings_list/views/recordings_list_screen.dart';
 import '../models/recording_state.dart';
@@ -9,6 +12,7 @@ import '../providers/recorder_provider.dart';
 import 'widgets/recording_control_button.dart';
 import 'widgets/recording_stats_card.dart';
 import 'widgets/recording_timer_badge.dart';
+import 'widgets/user_profile_dialog.dart';
 
 class HomeRecorderScreen extends StatefulWidget {
   const HomeRecorderScreen({super.key});
@@ -96,8 +100,91 @@ class _HomeRecorderScreenState extends State<HomeRecorderScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('SCREEN RECORDER PRO'),
+        title: const Text('REKAM'),
         actions: [
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) {
+              final user = auth.user;
+              if (user != null) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileScreen(),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 15,
+                            backgroundColor: AppColors.primary,
+                            backgroundImage: user.photoURL != null
+                                ? NetworkImage(user.photoURL!)
+                                : null,
+                            child: user.photoURL == null
+                                ? Text(
+                                    user.displayName?.isNotEmpty == true
+                                        ? user.displayName![0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Colors.greenAccent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF0F172A),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return IconButton(
+                icon: const Icon(Icons.account_circle_outlined,
+                    color: AppColors.textSecondary),
+                tooltip: 'Login Google untuk Akses Profil',
+                onPressed: () => UserProfileDialog.show(context),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.key_rounded, color: AppColors.accent),
+            tooltip: 'Setup Gemini API Key (Profil)',
+            onPressed: () {
+              final auth = context.read<AuthProvider>();
+              if (!auth.isLoggedIn) {
+                AiGuardService.showRequirementDialog(
+                  context: context,
+                  status: AiGuardStatus.needGoogleLogin,
+                  onLoginRequested: () => UserProfileDialog.show(context),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              }
+            },
+          ),
           // Tombol menuju Halaman Daftar Hasil Rekaman dengan counter badge
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
