@@ -73,4 +73,8 @@ GoogleService-Info.plist
 lib/firebase_options.dart
 **/firebase_options.dart
 
+# Kotlin compiler daemon sessions
+.kotlin/
+**/.kotlin/
+
 

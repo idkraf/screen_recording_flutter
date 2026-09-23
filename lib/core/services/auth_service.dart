@@ -73,6 +73,9 @@ class AuthService {
     }
   }
 
+  /// Cek apakah user sedang login
+  bool get isLoggedIn => currentUser != null;
+
   /// Melakukan Sign In menggunakan Google Account dan menghubungkannya ke Firebase Auth
   Future<User?> signInWithGoogle() async {
     final auth = _auth;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -53,6 +54,18 @@ class GoogleDriveService {
     required File videoFile,
     required String fileName,
   }) async {
+    return uploadRecordingWithProgress(
+      videoFile: videoFile,
+      fileName: fileName,
+    );
+  }
+
+  /// Mengunggah file video rekaman ke Google Drive dengan pelaporan progress real-time
+  static Future<DriveUploadResult> uploadRecordingWithProgress({
+    required File videoFile,
+    required String fileName,
+    void Function(int sentBytes, int totalBytes)? onProgress,
+  }) async {
     try {
       if (!await videoFile.exists()) {
         return DriveUploadResult(
@@ -73,9 +86,26 @@ class GoogleDriveService {
       final driveApi = drive.DriveApi(client);
       final folderId = await _getOrCreateAppFolder(driveApi);
 
-      final mediaStream = videoFile.openRead();
       final totalByteLength = await videoFile.length();
-      final media = drive.Media(mediaStream, totalByteLength);
+      int sentBytes = 0;
+
+      final countingStream = videoFile.openRead().transform<List<int>>(
+        StreamTransformer.fromHandlers(
+          handleData: (data, sink) {
+            sentBytes += data.length;
+            onProgress?.call(sentBytes, totalByteLength);
+            sink.add(data);
+          },
+          handleError: (error, stackTrace, sink) {
+            sink.addError(error, stackTrace);
+          },
+          handleDone: (sink) {
+            sink.close();
+          },
+        ),
+      );
+
+      final media = drive.Media(countingStream, totalByteLength);
 
       final driveFile = drive.File()
         ..name = fileName
@@ -107,3 +137,4 @@ class GoogleDriveService {
     }
   }
 }
+

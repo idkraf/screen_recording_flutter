@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionService {
+  static const MethodChannel _channel = MethodChannel('com.screenrecording.app/recorder');
+
   /// Meminta seluruh izin yang dibutuhkan untuk perekaman layar dan penyimpanan
   static Future<bool> requestRecordingPermissions() async {
     // 1. Microphone Permission
@@ -37,4 +40,26 @@ class PermissionService {
   static Future<bool> hasMicrophonePermission() async {
     return await Permission.microphone.isGranted;
   }
+
+  /// Memeriksa apakah aplikasi memiliki izin Floating Overlay (SYSTEM_ALERT_WINDOW)
+  static Future<bool> hasOverlayPermission() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final bool? hasPerm = await _channel.invokeMethod<bool>('checkOverlayPermission');
+      return hasPerm ?? false;
+    } catch (_) {
+      return await Permission.systemAlertWindow.isGranted;
+    }
+  }
+
+  /// Membuka halaman pengaturan sistem untuk memberikan izin Floating Overlay
+  static Future<void> requestOverlayPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('requestOverlayPermission');
+    } catch (_) {
+      await Permission.systemAlertWindow.request();
+    }
+  }
 }
+

@@ -14,7 +14,10 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -30,6 +33,12 @@ class ScreenCaptureService : Service() {
     private var isRecording = false
     private var isPaused = false
     private var currentOutputPath: String? = null
+
+    // Floating Overlay Controls & Timer
+    private var overlayManager: FloatingOverlayManager? = null
+    private val timerHandler = Handler(Looper.getMainLooper())
+    private var timerRunnable: Runnable? = null
+    private var elapsedSeconds = 0
 
     inner class LocalBinder : Binder() {
         fun getService(): ScreenCaptureService = this@ScreenCaptureService
@@ -135,12 +144,52 @@ class ScreenCaptureService : Service() {
             mediaRecorder?.start()
             isRecording = true
             isPaused = false
+
+            elapsedSeconds = 0
+            if (Settings.canDrawOverlays(this)) {
+                overlayManager = FloatingOverlayManager(this).apply {
+                    onPauseListener = { pauseRecording() }
+                    onResumeListener = { resumeRecording() }
+                    onStopListener = {
+                        val savedPath = stopRecording()
+                        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra("SAVED_VIDEO_PATH", savedPath)
+                        }
+                        if (launchIntent != null) {
+                            startActivity(launchIntent)
+                        }
+                    }
+                    show()
+                }
+            }
+            startTimer()
+
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error starting recording", e)
             cleanup()
             return false
         }
+    }
+
+    private fun startTimer() {
+        stopTimer()
+        timerRunnable = object : Runnable {
+            override fun run() {
+                if (isRecording && !isPaused) {
+                    elapsedSeconds++
+                    overlayManager?.updateTimer(elapsedSeconds)
+                }
+                timerHandler.postDelayed(this, 1000)
+            }
+        }
+        timerHandler.postDelayed(timerRunnable!!, 1000)
+    }
+
+    private fun stopTimer() {
+        timerRunnable?.let { timerHandler.removeCallbacks(it) }
+        timerRunnable = null
     }
 
     private fun setupMediaRecorder(
@@ -182,6 +231,7 @@ class ScreenCaptureService : Service() {
             try {
                 mediaRecorder?.pause()
                 isPaused = true
+                overlayManager?.setPausedState(true)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Error pausing recording", e)
@@ -195,6 +245,7 @@ class ScreenCaptureService : Service() {
             try {
                 mediaRecorder?.resume()
                 isPaused = false
+                overlayManager?.setPausedState(false)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Error resuming recording", e)
@@ -218,6 +269,10 @@ class ScreenCaptureService : Service() {
     }
 
     private fun cleanup() {
+        stopTimer()
+        overlayManager?.dismiss()
+        overlayManager = null
+
         try {
             mediaRecorder?.reset()
             mediaRecorder?.release()

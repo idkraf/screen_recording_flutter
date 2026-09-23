@@ -11,6 +11,7 @@ import 'core/services/crashlytics_service.dart';
 import 'features/recorder/providers/recorder_provider.dart';
 import 'features/recorder/views/home_recorder_screen.dart';
 import 'features/recordings_list/providers/recordings_provider.dart';
+import 'core/providers/drive_sync_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +50,7 @@ class ScreenRecorderApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => RecorderProvider()),
         ChangeNotifierProvider(create: (_) => RecordingsProvider()),
+        ChangeNotifierProvider(create: (_) => DriveSyncProvider()),
       ],
       child: MaterialApp(
         title: 'REKAM',

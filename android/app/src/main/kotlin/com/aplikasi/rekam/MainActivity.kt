@@ -7,7 +7,9 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.util.DisplayMetrics
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -68,6 +70,25 @@ class MainActivity : FlutterActivity() {
                     moveTaskToBack(true)
                     result.success(true)
                 }
+                "checkOverlayPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        result.success(Settings.canDrawOverlays(this))
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "requestOverlayPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        if (!Settings.canDrawOverlays(this)) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:$packageName")
+                            )
+                            startActivity(intent)
+                        }
+                    }
+                    result.success(true)
+                }
                 "editVideoDeleteRange" -> handleEditVideoDeleteRange(call, result)
                 "trimVideo" -> handleTrimVideo(call, result)
                 else -> result.notImplemented()
@@ -111,6 +132,7 @@ class MainActivity : FlutterActivity() {
         val startDeleteMs = (call.argument<Number>("startDeleteMs"))?.toLong() ?: 0L
         val endDeleteMs = (call.argument<Number>("endDeleteMs"))?.toLong() ?: 0L
         val totalDurationMs = (call.argument<Number>("totalDurationMs"))?.toLong() ?: 0L
+        val muteAudio = call.argument<Boolean>("muteAudio") ?: false
 
         if (inputPath == null || outputPath == null) {
             result.error("INVALID_ARGS", "inputPath and outputPath must not be null", null)
@@ -137,7 +159,11 @@ class MainActivity : FlutterActivity() {
                     .setUri(uri)
                     .setClippingConfiguration(clipConfig1)
                     .build()
-                editedItems.add(EditedMediaItem.Builder(mediaItem1).build())
+                editedItems.add(
+                    EditedMediaItem.Builder(mediaItem1)
+                        .setRemoveAudio(muteAudio)
+                        .build()
+                )
             }
 
             // Bagian 2: Dari endDeleteMs hingga akhir video (jika sisa durasi > 50ms)
@@ -150,7 +176,11 @@ class MainActivity : FlutterActivity() {
                     .setUri(uri)
                     .setClippingConfiguration(clipConfig2)
                     .build()
-                editedItems.add(EditedMediaItem.Builder(mediaItem2).build())
+                editedItems.add(
+                    EditedMediaItem.Builder(mediaItem2)
+                        .setRemoveAudio(muteAudio)
+                        .build()
+                )
             }
 
             if (editedItems.isEmpty()) {
@@ -198,6 +228,7 @@ class MainActivity : FlutterActivity() {
         val outputPath = call.argument<String>("outputPath")
         val startMs = (call.argument<Number>("startMs"))?.toLong() ?: 0L
         val endMs = (call.argument<Number>("endMs"))?.toLong() ?: 0L
+        val muteAudio = call.argument<Boolean>("muteAudio") ?: false
 
         if (inputPath == null || outputPath == null) {
             result.error("INVALID_ARGS", "inputPath and outputPath must not be null", null)
@@ -220,7 +251,9 @@ class MainActivity : FlutterActivity() {
                 .setUri(uri)
                 .setClippingConfiguration(clipConfig)
                 .build()
-            val editedItem = EditedMediaItem.Builder(mediaItem).build()
+            val editedItem = EditedMediaItem.Builder(mediaItem)
+                .setRemoveAudio(muteAudio)
+                .build()
 
             val outputFile = File(outputPath)
             if (outputFile.exists()) {

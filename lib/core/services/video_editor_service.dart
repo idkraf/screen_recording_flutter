@@ -11,12 +11,14 @@ class VideoEditorService {
   /// [startDeleteMs] titik awal potongan dalam milidetik
   /// [endDeleteMs] titik akhir potongan dalam milidetik
   /// [totalDurationMs] total durasi video dalam milidetik
+  /// [muteAudio] jika bernilai true, saluran audio akan dihilangkan/dibisukan
   static Future<String?> deleteRange({
     required String inputPath,
     required String outputPath,
     required int startDeleteMs,
     required int endDeleteMs,
     required int totalDurationMs,
+    bool muteAudio = false,
   }) async {
     try {
       final String? result = await _channel.invokeMethod<String>(
@@ -27,6 +29,7 @@ class VideoEditorService {
           'startDeleteMs': startDeleteMs,
           'endDeleteMs': endDeleteMs,
           'totalDurationMs': totalDurationMs,
+          'muteAudio': muteAudio,
         },
       );
       return result;
@@ -39,12 +42,14 @@ class VideoEditorService {
     }
   }
 
-  /// Memotong video dan hanya mempertahankan rentang terpilih (Trim)
+  /// Memotong video dan hanya mempertahankan rentang terpilih (Trim / Keep Selection)
+  /// [muteAudio] jika bernilai true, saluran audio akan dihilangkan/dibisukan
   static Future<String?> trim({
     required String inputPath,
     required String outputPath,
     required int startMs,
     required int endMs,
+    bool muteAudio = false,
   }) async {
     try {
       final String? result = await _channel.invokeMethod<String>(
@@ -54,6 +59,7 @@ class VideoEditorService {
           'outputPath': outputPath,
           'startMs': startMs,
           'endMs': endMs,
+          'muteAudio': muteAudio,
         },
       );
       return result;
@@ -67,12 +73,17 @@ class VideoEditorService {
   }
 
   /// Menghasilkan path penyimpanan untuk video hasil edit di direktori ScreenRecordings
-  static Future<String> generateEditedFilePath(String originalPath) async {
+  static Future<String> generateEditedFilePath(
+    String originalPath, {
+    String tag = 'edited',
+  }) async {
     final dir = await StorageService.getRecordingsDirectory();
     final originalFile = File(originalPath);
-    final originalNameWithoutExt = originalFile.uri.pathSegments.last.replaceAll('.mp4', '');
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
-    final newFileName = '${originalNameWithoutExt}_cut_$timestamp.mp4';
+    final originalNameWithoutExt =
+        originalFile.uri.pathSegments.last.replaceAll('.mp4', '');
+    final timestamp =
+        DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+    final newFileName = '${originalNameWithoutExt}_${tag}_$timestamp.mp4';
     return '${dir.path}/$newFileName';
   }
 }

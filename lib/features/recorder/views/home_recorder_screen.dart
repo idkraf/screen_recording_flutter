@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/drive_sync_provider.dart';
 import '../../../core/services/ai_guard_service.dart';
+import '../../../core/services/permission_service.dart';
 import '../../../core/services/screen_recorder_service.dart';
 import '../../profile/views/profile_screen.dart';
 import '../../recordings_list/providers/recordings_provider.dart';
@@ -32,6 +34,57 @@ class _HomeRecorderScreenState extends State<HomeRecorderScreen> {
   }
 
   void _handleStartRecording() async {
+    final hasOverlay = await PermissionService.hasOverlayPermission();
+    if (!hasOverlay && mounted) {
+      final shouldProceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF334155)),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.layers_rounded, color: Color(0xFF38BDF8)),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Bubble Kontrol Mengambang',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Ingin mengaktifkan tombol kontrol mengambang (Floating Overlay) di atas aplikasi lain agar Anda dapat menjeda atau menghentikan rekaman dengan cepat?',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Lanjut Tanpa Bubble', style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx, true);
+                await PermissionService.requestOverlayPermission();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Aktifkan'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldProceed != true) return;
+    }
+
+    if (!mounted) return;
     final recorder = context.read<RecorderProvider>();
     final success = await recorder.startRecording(context: context);
 
@@ -66,6 +119,12 @@ class _HomeRecorderScreenState extends State<HomeRecorderScreen> {
       // Tambahkan ke provider daftar rekaman
       final recordingsProvider = context.read<RecordingsProvider>();
       recordingsProvider.addRecording(newRecording);
+
+      // Auto-Sync ke Google Drive jika diaktifkan pengguna
+      final driveSync = context.read<DriveSyncProvider>();
+      if (driveSync.isAutoSyncEnabled) {
+        driveSync.enqueueUpload(newRecording);
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -138,7 +138,9 @@ Tombol dan fitur AI pada Halaman Video Player dilindungi oleh guard ketat:
 
 ---
 
-## 6. Spesifikasi Alur 1 Tombol Dinamis (4-State Button)
+## 6. Spesifikasi Kontrol Perekaman Layar
+
+### 6.1 Alur 1 Tombol Dinamis (4-State Button)
 
 | Status | Tampilan Tombol | Aksi Pengguna | Transisi Berikutnya |
 | :--- | :--- | :--- | :--- |
@@ -146,6 +148,43 @@ Tombol dan fitur AI pada Halaman Video Player dilindungi oleh guard ketat:
 | **2. Pause (Recording)** | Tombol Amber/Kuning + Icon Pause | Menjeda capture stream native | `paused` |
 | **3. Resume (Paused)** | Tombol Hijau Emerald + Icon Play | Melanjutkan perekaman layar | `recording` |
 | **4. Selesai (Stop)** | Tombol Merah Terintegrasi "Selesai & Simpan" | Stop service & simpan file `.mp4` ke lokal | Simpan ➔ Navigasi ke List Screen |
+
+### 6.2 Floating Overlay Controls (Native WindowManager Bubble)
+
+Saat proses perekaman layar dimulai, aplikasi otomatis berpindah ke background (`moveTaskToBack(true)`) dan memunculkan **Floating Overlay Bubble** native di atas aplikasi lain:
+- **Izin yang Digunakan:** `android.permission.SYSTEM_ALERT_WINDOW` (`Settings.canDrawOverlays`).
+- **Efisiensi Memori & Nol Frame-Drop:** Dibuat menggunakan modul native [`FloatingOverlayManager.kt`](file:///d:/Project/Fastwork/screenrecording/android/app/src/main/kotlin/com/aplikasi/rekam/FloatingOverlayManager.kt) via Android `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY`. Beban memori <1MB RAM tanpa merender Flutter engine di overlay, sehingga menjaga video encoder tetap mulus pada 30/60 fps.
+- **Interaksi Pengguna:**
+  - **Drag-and-Drop Bebas:** Bubble dapat digeser ke posisi mana pun di layar dan menggunakan `FLAG_NOT_FOCUSABLE` agar sentuhan di luar tombol tetap tembus ke aplikasi yang sedang direkam.
+  - **Mode Kompak:** Menampilkan titik merah berdenyut (*recording indicator*) dan penghitung durasi waktu (`mm:ss`).
+  - **Mode Ekspansi:** Mengetuk bubble akan menampilkan menu aksi cepat:
+    - ⏸ **Jeda / ▶ Lanjut:** Menjeda dan melanjutkan rekaman secara instan.
+    - ⏹ **Selesai:** Menghentikan rekaman, menutup overlay, dan otomatis membawa aplikasi REKAM kembali ke depan menampilkan video baru.
+
+### 6.3 Background Google Drive Sync (Antrean Unggah Latar Belakang)
+
+Fitur pencadangan video rekaman ke Google Drive pribadi pengguna dengan mekanisme antrian FIFO:
+- **Validasi Sesi:** Wajib Google Sign-In aktif. Jika tidak login, unggahan ditolak dengan pesan edukatif.
+- **Sequential FIFO Queue:** Satu unggahan aktif pada satu waktu untuk menjaga stabilitas RAM dan jaringan.
+- **Streaming Progress:** `StreamTransformer` byte counter memberikan update progres 0%–100% secara real-time, di-throttle setiap 150ms untuk mencegah frame drop di thread rendering.
+- **Status Badge di Tile Rekaman:**
+  - ☁ Ikon abu-abu: belum dicadangkan (ketuk untuk mengunggah).
+  - 🔄 Circular progress dengan persentase: sedang mengunggah.
+  - ✅ Ikon hijau: tersinkronisasi (`completed`).
+  - ⚠ Ikon merah + tombol coba lagi: gagal (`failed`).
+- **Bottom Banner Aktif:** Banner progress di bawah layar daftar rekaman menampilkan `"Mengunggah [nama file] (XX%)"` dengan `LinearProgressIndicator`.
+- **Toggle Cadangkan Otomatis:** Jika diaktifkan, rekaman baru otomatis masuk antrean begitu rekaman selesai disimpan.
+
+### 6.4 Video Editor Enhancement (Trim & Cut dengan Toggle Audio Mute)
+
+Peningkatan editor video dengan dua mode pemrosesan via Media3 Transformer:
+- **Mode Pangkas (Trim):** Hanya mempertahankan segmen yang dipilih oleh pengguna (keep selection).
+- **Mode Potong (Cut):** Membuang segmen frame yang dipilih dan menyambung dua bagian video yang tersisa.
+- **Visual RangeSlider:** `RangeSlider` interaktif dengan timestamp presisi `MM:SS.T` di titik awal dan akhir.
+- **Stepper Presisi:** Navigasi ±100ms dan ±1 detik untuk penentuan batas frame yang akurat.
+- **Toggle Hapus Audio (Mute):** Sakelar `muteAudio` meneruskan parameter `setRemoveAudio(true)` ke Media3 Transformer native, mengekspor video tanpa saluran audio.
+- **Pratinjau Interaktif:** Mode preview langsung memutar/melewati segmen sesuai mode yang dipilih.
+- **Indikator Status:** Badge `AUDIO MUTED` di sudut video player, dan label adaptif pada tombol ekspor.
 
 ---
 
@@ -158,7 +197,8 @@ lib/
 │   │   ├── app_colors.dart            # Theme tokens (Dark Slate & Ocean Blue)
 │   │   └── app_theme.dart             # Global ThemeData
 │   ├── providers/
-│   │   └── auth_provider.dart         # State manager Firebase Google Sign-In
+│   │   ├── auth_provider.dart         # State manager Firebase Google Sign-In
+│   │   └── drive_sync_provider.dart   # FIFO Queue Background Drive Sync Manager
 │   ├── services/
 │   │   ├── ai_guard_service.dart      # Validasi hak akses AI (Auth + Key per-UID)
 │   │   ├── ai_service.dart            # Utilitas testing koneksi Gemini API
@@ -194,17 +234,18 @@ lib/
 │   │
 │   └── recordings_list/               # Fitur Galeri & Playback
 │       ├── models/
-│       │   └── ai_analysis_model.dart # Model Smart Chapters, Summary & AiCommandResponse
+│       │   ├── ai_analysis_model.dart # Model Smart Chapters, Summary & AiCommandResponse
+│       │   └── drive_upload_task.dart # Model antrean unggah Drive (status, progress, bytes)
 │       ├── providers/
 │       │   └── recordings_provider.dart # State manager daftar rekaman & sharing
 │       └── views/
-│           ├── recordings_list_screen.dart # Layar daftar video rekaman
-│           ├── video_edit_screen.dart      # Layar editor potong frame presisi
+│           ├── recordings_list_screen.dart # Layar daftar rekaman + Drive Sync Banner
+│           ├── video_edit_screen.dart      # Editor Trim/Cut + Audio Mute + Visual Slider
 │           ├── video_player_screen.dart    # Pemutar video in-app (AI Chapters + Drive)
 │           └── widgets/
 │               ├── ai_analysis_bottom_sheet.dart # Panel 2-Tab: Smart Timeline & Command Assistant
 │               ├── gemini_api_key_dialog.dart    # Dialog BYOK Gemini API Key
-│               └── recording_item_tile.dart      # Card thumbnail & actions item
+│               └── recording_item_tile.dart      # Card thumbnail + Drive Sync Badge + actions
 │
 ├── firebase_options.dart              # Konfigurasi multi-platform FlutterFire
 └── main.dart                          # Entry point aplikasi (Firebase safe-init)

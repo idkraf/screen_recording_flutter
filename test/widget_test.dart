@@ -1,13 +1,18 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:screen_recorder_app/core/services/ai_guard_service.dart';
 import 'package:screen_recorder_app/core/services/ai_service.dart';
 import 'package:screen_recorder_app/core/services/analytics_service.dart';
 import 'package:screen_recorder_app/core/services/crashlytics_service.dart';
+import 'package:screen_recorder_app/core/services/permission_service.dart';
 import 'package:screen_recorder_app/core/services/video_ai_service.dart';
 import 'package:screen_recorder_app/core/utils/formatters.dart';
 import 'package:screen_recorder_app/features/recorder/models/recording_model.dart';
 import 'package:screen_recorder_app/features/recorder/models/recording_state.dart';
 import 'package:screen_recorder_app/features/recordings_list/models/ai_analysis_model.dart';
+import 'package:screen_recorder_app/features/recordings_list/models/drive_upload_task.dart';
+import 'package:screen_recorder_app/core/providers/drive_sync_provider.dart';
+import 'package:screen_recorder_app/core/services/video_editor_service.dart';
 import 'package:screen_recorder_app/main.dart';
 
 void main() {
@@ -170,6 +175,139 @@ void main() {
       await crashlytics.log('Test log message');
       await crashlytics.setCustomKey('test_key', 'test_val');
       await crashlytics.setUserIdentifier('user_test_123');
+    });
+
+    test('PermissionService overlay permission methods execute safely in test environment', () async {
+      final hasOverlay = await PermissionService.hasOverlayPermission();
+      expect(hasOverlay, isA<bool>());
+      await PermissionService.requestOverlayPermission();
+    });
+  });
+
+  group('Drive Sync Unit Tests', () {
+    test('DriveUploadTask model creation and state helpers', () {
+      final now = DateTime.now();
+      final task = DriveUploadTask(
+        id: 'rec_101',
+        filePath: '/data/rec_101.mp4',
+        fileName: 'rec_101.mp4',
+        fileSizeBytes: 10 * 1024 * 1024,
+        status: DriveUploadStatus.pending,
+        createdAt: now,
+      );
+
+      expect(task.id, 'rec_101');
+      expect(task.isPending, isTrue);
+      expect(task.isUploading, isFalse);
+      expect(task.isCompleted, isFalse);
+      expect(task.progressPercentage, 0);
+
+      final uploading = task.copyWith(
+        status: DriveUploadStatus.uploading,
+        progress: 0.55,
+        uploadedBytes: 5 * 1024 * 1024,
+      );
+      expect(uploading.isUploading, isTrue);
+      expect(uploading.progressPercentage, 55);
+
+      final completed = task.copyWith(
+        status: DriveUploadStatus.completed,
+        progress: 1.0,
+        driveFileId: 'drive_file_abc',
+        webViewLink: 'https://drive.google.com/file/d/drive_file_abc/view',
+      );
+      expect(completed.isCompleted, isTrue);
+      expect(completed.driveFileId, 'drive_file_abc');
+      expect(completed.webViewLink, contains('drive.google.com'));
+
+      final failed = task.copyWith(
+        status: DriveUploadStatus.failed,
+        errorMessage: 'Network timeout',
+      );
+      expect(failed.isFailed, isTrue);
+      expect(failed.errorMessage, 'Network timeout');
+    });
+
+    test('DriveSyncProvider queue management and auto-sync toggle', () async {
+      final provider = DriveSyncProvider();
+      expect(provider.isAutoSyncEnabled, isFalse);
+      expect(provider.tasks, isEmpty);
+      expect(provider.activeTask, isNull);
+      expect(provider.pendingOrActiveCount, 0);
+
+      provider.toggleAutoSync(true);
+      expect(provider.isAutoSyncEnabled, isTrue);
+
+      final rec = RecordingModel(
+        id: 'rec_sync_01',
+        fileName: 'test_sync.mp4',
+        filePath: '/tmp/test_sync.mp4',
+        fileSizeBytes: 2048,
+        duration: const Duration(seconds: 10),
+        createdAt: DateTime.now(),
+      );
+
+      await provider.enqueueUpload(rec);
+      expect(provider.tasks.length, 1);
+      final task = provider.getTaskForRecording(rec.id);
+      expect(task, isNotNull);
+
+      // Sesi Google tidak aktif di test environment, status menjadi failed dengan pesan edukatif
+      expect(task!.isFailed, isTrue);
+      expect(task.errorMessage, contains('Sesi Google'));
+
+      // Test retry
+      await provider.retryUpload(rec.id);
+      final retried = provider.getTaskForRecording(rec.id);
+      expect(retried, isNotNull);
+
+      // Test cancel dan clear
+      provider.cancelUpload(rec.id);
+      provider.clearCompleted();
+    });
+  });
+
+  group('VideoEditorService Unit Tests', () {
+    test('generateEditedFilePath creates appropriate file path with tag', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/path_provider'),
+        (MethodCall methodCall) async {
+          return '/data/user/0/com.aplikasi.rekam/app_flutter';
+        },
+      );
+
+      final samplePath = '/storage/emulated/0/ScreenRecordings/rec_test.mp4';
+      final editedPath = await VideoEditorService.generateEditedFilePath(
+        samplePath,
+        tag: 'trimmed_muted',
+      );
+
+      expect(editedPath, contains('rec_test_trimmed_muted_'));
+      expect(editedPath.endsWith('.mp4'), isTrue);
+    });
+
+    test('trim and deleteRange invoke safely with muteAudio parameter in test environment', () async {
+      // Dalam unit test tanpa native platform channel handler terdaftar,
+      // method mengembalikan null atau error boundary tanpa unhandled exception
+      final trimResult = await VideoEditorService.trim(
+        inputPath: '/tmp/input.mp4',
+        outputPath: '/tmp/output.mp4',
+        startMs: 100,
+        endMs: 500,
+        muteAudio: true,
+      );
+      expect(trimResult, isNull);
+
+      final deleteResult = await VideoEditorService.deleteRange(
+        inputPath: '/tmp/input.mp4',
+        outputPath: '/tmp/output.mp4',
+        startDeleteMs: 100,
+        endDeleteMs: 200,
+        totalDurationMs: 1000,
+        muteAudio: false,
+      );
+      expect(deleteResult, isNull);
     });
   });
 
